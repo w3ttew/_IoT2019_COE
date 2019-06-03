@@ -1,0 +1,134 @@
+const bodyParser = require('body-parser')
+const request = require('request')
+const express = require('express')
+const mongoose = require('mongoose')
+
+const app = express()
+const port = process.env.PORT || 4000
+var Schema = mongoose.Schema 
+mongoose.Promise = global.Promise
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/Mydb').then(()=>{
+    console.log('@@@ Connect Success @@@')
+}, ()=>{
+    console.log('!!! Fail to connect !!!')
+})
+
+
+const hostname = '127.0.0.1'
+const HEADERS = {
+	'Content-Type': 'application/json',
+	'Authorization': 'Bearer tHvub6J4Aqa/+3vFLWV/qhqyOmA5Gm4XmI7E8/2xcQg36B41RQd9BVN0F1+ww+sB9LbXuga3BJH2ZFD9vF4+Ls8H6OS73OoL95xdPLKSlygDUgbMcSMA1Ltc3JHNZo2tg7BuDInNUiJFQsGHv9jWlAdB04t89/1O/w1cDnyilFU='
+}
+
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+
+// Push
+app.get('/webhook', (req, res) => {
+	// push block
+	let msg = 'Hello World!'
+	push(msg)
+	res.send(msg)
+})
+
+// Reply
+app.post('/webhook', (req, res) => {
+	// reply block
+	let reply_token = req.body.events[0].replyToken
+	let msg = req.body.events[0].message.text
+	if(msg == 'Good'){
+		reply(reply_token, 'Hi')
+	}else{
+		reply(reply_token, msg)
+	}
+	//reply(reply_token, msg)
+})
+
+function push(msg) {
+	let body = JSON.stringify({
+		// push body
+		to: 'Ua8fb468ec178304d90cb203757964d13',
+		messages: [
+			{
+				type: 'text',
+				text: msg
+			}
+		]
+	})
+	curl('push', body)
+}
+
+function reply(reply_token, msg) {
+	let body = JSON.stringify({
+		// reply body
+		replyToken: reply_token,
+		messages: [
+			{
+				type: 'text',
+				text: msg
+			}
+		]
+	})
+	curl('reply', body);
+}
+
+function curl(method, body) {
+	request.post({
+		url: 'https://api.line.me/v2/bot/message/' + method,
+		headers: HEADERS,
+		body: body
+	}, (err, res, body) => {
+		console.log('status = ' + res.statusCode)
+	})
+}
+
+app.listen(port, hostname, () => {
+	console.log(`Server running at http://${hostname}:${port}/`)
+})
+
+/*----------------------------------------------------------------------------------------------------*/
+
+var dataSchema = new Schema({
+	id:{type:String,required:true,unique:true},
+	temp:{type:Number,required:true,unique:false},
+	humi:{type:Number,required:true,unique:false},
+	water:{type:String,required:true,unique:false},
+	gas:{type:Number,required:true,unique:false},
+	dust:{type:String,required:true,unique:false},
+	date:{type:String,required:true,unique:false}
+})
+
+var data = mongoose.model('data',dataSchema)
+
+app.get('/getdata',(req,res)=>{
+	data.find().then((docs)=>{
+		res.send(docs)
+	})
+})
+
+app.get('/getdata/:x',(req,res)=>{
+	data.find({name:req.params.x}).then((docs)=>{
+		res.send(docs)
+	})
+})
+
+app.get('/delete',(req,res)=>{
+	data.remove({},(docs)=>{
+		res.send(docs)
+	})
+})
+
+app.post('/postdata', (req,res)=>{
+    let buffer = new data({
+		id : req.body.id ,
+		temp : req.body.temp,
+		humi  : req.body.humi,
+		water  : req.body.water,
+		gas  : req.body.gas,
+		dust  : req.body.dust,
+		date  : req.body.date
+    })
+    buffer.save().then((docs)=>{
+        res.send(docs)
+    })
+})
